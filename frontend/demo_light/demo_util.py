@@ -15,7 +15,7 @@ import streamlit as st
 # sys.path.append('../../')
 from knowledge_storm import STORMWikiRunnerArguments, STORMWikiRunner, STORMWikiLMConfigs
 from knowledge_storm.lm import OpenAIModel
-from knowledge_storm.rm import YouRM
+from knowledge_storm.rm import YouRM, BingSearch
 from knowledge_storm.storm_wiki.modules.callback import BaseCallbackHandler
 from knowledge_storm.utils import truncate_filename
 from stoc import stoc
@@ -483,6 +483,46 @@ def _display_main_article(selected_article_file_path_dict, show_reference=True, 
                 ":sunglasses: Click here to view the agent's brain**STORM**ing process!"):
             _display_persona_conversations(conversation_log=article_data.get("conversation_log", {}))
 
+############
+def _display_main_article(selected_article_file_path_dict, show_reference=True, show_conversation=True):
+    # Assemble article data from the provided dictionary
+    article_data = DemoFileIOHelper.assemble_article_data(selected_article_file_path_dict)
+
+    with st.container():
+        table_content_sidebar = st.sidebar.expander("**Table of contents**", expanded=True)
+        
+        # Display the main article text with proper LaTeX rendering
+        _display_main_article_text_with_latex(article_text=article_data.get("article", ""),
+                                              citation_dict=article_data.get("citations", {}),
+                                              table_content_sidebar=table_content_sidebar)
+
+    # Display reference panel
+    if show_reference and "citations" in article_data:
+        with st.sidebar.expander("**References**", expanded=True):
+            with st.container():
+                _display_references(citation_dict=article_data.get("citations", {}))
+
+    # Display conversation history
+    if show_conversation and "conversation_log" in article_data:
+        with st.expander(
+                "**STORM** is powered by a knowledge agent that proactively researches a given topic by asking good questions from different perspectives.\n\n"
+                ":sunglasses: Click here to view the agent's brain**STORM**ing process!"):
+            _display_persona_conversations(conversation_log=article_data.get("conversation_log", {}))
+
+def _display_main_article_text_with_latex(article_text, citation_dict, table_content_sidebar):
+    """
+    This function displays the article text, converting LaTeX delimiters to ones supported by Streamlit.
+    """
+    # Replace OpenAI LaTeX delimiters with those compatible with Streamlit
+    article_text = re.sub(r'\\\(', '$', article_text)
+    article_text = re.sub(r'\\\)', '$', article_text)
+    article_text = re.sub(r'\\\[', '$$', article_text)
+    article_text = re.sub(r'\\\]', '$$', article_text)
+    
+    with st.container():
+        # Render the main article content with Markdown, allowing LaTeX to be displayed properly
+        st.markdown(article_text, unsafe_allow_html=True)
+############
 
 def get_demo_dir():
     return os.path.dirname(os.path.abspath(__file__))
@@ -504,19 +544,31 @@ def set_storm_runner():
 
     # configure STORM runner
     llm_configs = STORMWikiLMConfigs()
-    llm_configs.init_openai_model(openai_api_key=st.secrets['OPENAI_API_KEY'], openai_type='openai')
-    llm_configs.set_question_asker_lm(OpenAIModel(model='gpt-4-1106-preview', api_key=st.secrets['OPENAI_API_KEY'],
-                                                  api_provider='openai',
-                                                  max_tokens=500, temperature=1.0, top_p=0.9))
+    openai_kwargs = {
+        'api_key': st.secrets['OPENAI_API_KEY'],
+        'temperature': 1.0,
+        'top_p': 0.9,
+    }
+    # llm_configs.init_openai_model(openai_api_key=st.secrets['OPENAI_API_KEY'], openai_type='openai')
+    # llm_configs.set_question_asker_lm(OpenAIModel(model='gpt-4-1106-preview', api_key=st.secrets['OPENAI_API_KEY'],
+    #                                               api_provider='openai',
+    #                                               max_tokens=500, temperature=1.0, top_p=0.9))
+    gpt_4_mini = OpenAIModel(model='gpt-4o-mini', max_tokens=3000, **openai_kwargs)
+    llm_configs.set_conv_simulator_lm(gpt_4_mini)
+    llm_configs.set_question_asker_lm(gpt_4_mini)
+    llm_configs.set_outline_gen_lm(gpt_4_mini)
+    llm_configs.set_article_gen_lm(gpt_4_mini)
+    llm_configs.set_article_polish_lm(gpt_4_mini)
     engine_args = STORMWikiRunnerArguments(
         output_dir=current_working_dir,
         max_conv_turn=3,
         max_perspective=3,
-        search_top_k=3,
+        search_top_k=10,
         retrieve_top_k=5
     )
 
-    rm = YouRM(ydc_api_key=st.secrets['YDC_API_KEY'], k=engine_args.search_top_k)
+    rm = BingSearch(bing_search_api_key=os.getenv('BING_SEARCH_KEY'), k=engine_args.search_top_k)
+
 
     runner = STORMWikiRunner(engine_args, llm_configs, rm)
     st.session_state["runner"] = runner
