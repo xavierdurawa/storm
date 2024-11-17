@@ -23,7 +23,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 
 
 class ConvSimulator(dspy.Module):
-    """Simulate a conversation between a Wikipedia writer with specific persona and an expert."""
+    """Simulate a conversation between a educational primer/mini-textbook writer with specific persona and an expert."""
 
     def __init__(
         self,
@@ -35,7 +35,7 @@ class ConvSimulator(dspy.Module):
         max_turn: int,
     ):
         super().__init__()
-        self.wiki_writer = WikiWriter(engine=question_asker_engine)
+        self.wiki_writer = Writer(engine=question_asker_engine)
         self.topic_expert = TopicExpert(
             engine=topic_expert_engine,
             max_search_queries=max_search_queries_per_turn,
@@ -53,7 +53,7 @@ class ConvSimulator(dspy.Module):
     ):
         """
         topic: The topic to research.
-        persona: The persona of the Wikipedia writer.
+        persona: The persona of the writer.
         ground_truth_url: The ground_truth_url will be excluded from search to avoid ground truth leakage in evaluation.
         """
         dlg_history: List[DialogueTurn] = []
@@ -62,7 +62,7 @@ class ConvSimulator(dspy.Module):
                 topic=topic, persona=persona, dialogue_turns=dlg_history
             ).question
             if user_utterance == "":
-                logging.error("Simulated Wikipedia writer utterance is empty.")
+                logging.error("Simulated writer utterance is empty.")
                 break
             if user_utterance.startswith("Thank you so much for your help!"):
                 break
@@ -81,7 +81,7 @@ class ConvSimulator(dspy.Module):
         return dspy.Prediction(dlg_history=dlg_history)
 
 
-class WikiWriter(dspy.Module):
+class Writer(dspy.Module):
     """Perspective-guided question asking in conversational setup.
 
     The asked question will be used to start a next round of information seeking."""
@@ -126,7 +126,7 @@ class WikiWriter(dspy.Module):
 
 
 class AskQuestion(dspy.Signature):
-    """You are an experienced Wikipedia writer. You are chatting with an expert to get information for the topic you want to contribute. Ask good questions to get more useful information relevant to the topic.
+    """You are an experienced educational writer specialized in writing 20-50 page primers/mini-textbooks. You want to write on a particular topic. You are chatting with an expert to get information for the topic you want to contribute. Ask good questions to get more useful information relevant to the topic. Also ask questions about how what prerequiste knowledge is needed and how best to structure infomration for learning.
     When you have no more question to ask, say "Thank you so much for your help!" to end the conversation.
     Please only ask a question at a time and don't ask what you have asked before. Your questions should be related to the topic you want to write.
     """
@@ -137,8 +137,8 @@ class AskQuestion(dspy.Signature):
 
 
 class AskQuestionWithPersona(dspy.Signature):
-    """You are an experienced Wikipedia writer and want to edit a specific page. Besides your identity as a Wikipedia writer, you have specific focus when researching the topic.
-    Now, you are chatting with an expert to get information. Ask good questions to get more useful information.
+    """You are an experienced educational writer specialized in writing 20-50 page primers/mini-textbooks. You want to write on a particular topic. Besides your identity as a educational writer, you have specific focus when researching the topic.
+    Now, you are chatting with an expert to get information. Ask good questions to get more useful information. Also ask questions about how what prerequiste knowledge is needed and how best to structure infomration for learning.
     When you have no more question to ask, say "Thank you so much for your help!" to end the conversation.
     Please only ask a question at a time and don't ask what you have asked before. Your questions should be related to the topic you want to write.
     """
@@ -165,8 +165,9 @@ class QuestionToQuery(dspy.Signature):
 
 
 class AnswerQuestion(dspy.Signature):
-    """You are an expert who can use information effectively. You are chatting with a Wikipedia writer who wants to write a Wikipedia page on topic you know. You have gathered the related information and will now use the information to form a response.
+    """You are an expert who can use information effectively. You are chatting with an educational writer who wants to write a primer/mini-textbook on a topic you know. You have gathered the related information and will now use the information to form a response.
     Make your response as informative as possible, ensuring that every sentence is supported by the gathered information. If the [gathered information] is not directly related to the [topic] or [question], provide the most relevant answer based on the available information. If no appropriate answer can be formulated, respond with, “I cannot answer this question based on the available information,” and explain any limitations or gaps.
+    Responses should be clear and intented to teach. The use of simple examples, clear understandable language, and graduate introduction into more complex topics is encouraged.
     """
 
     topic = dspy.InputField(prefix="Topic you are discussing about:", format=str)
