@@ -46,7 +46,7 @@ def get_wiki_page_title_and_toc(url):
 
 
 class FindRelatedTopic(dspy.Signature):
-    """I'm writing a Wikipedia page for a topic mentioned below. Please identify and recommend some Wikipedia pages on closely related subjects. I'm looking for examples that provide insights into interesting aspects commonly associated with this topic, or examples that help me understand the typical content and structure included in Wikipedia pages for similar topics.
+    """I'm writing an educational primer/mini-textbook for a topic mentioned below. Please identify and recommend some Wikipedia pages on closely related subjects. I'm looking for examples that provide insights into interesting aspects commonly associated with this topic, or examples that help me understand the typical content and structure included in Wikipedia pages for similar topics.
     Please list the urls in separate lines."""
 
     topic = dspy.InputField(prefix="Topic of interest:", format=str)
@@ -54,13 +54,13 @@ class FindRelatedTopic(dspy.Signature):
 
 
 class GenPersona(dspy.Signature):
-    """You need to select a group of Wikipedia editors who will work together to create a comprehensive article on the topic. Each of them represents a different perspective, role, or affiliation related to this topic. You can use other Wikipedia pages of related topics for inspiration. For each editor, add a description of what they will focus on.
+    """You need to select a group of educational/textbook writers who will work together to create a comprehensive educational primer/mini-textbook on the topic. Each of them represents a different perspective, role, or affiliation related to this topic. You can use other Wikipedia pages of related topics for inspiration. Also include an editor that ensures the content is created in an educational way. For each editor, add a description of what they will focus on.
     Give your answer in the following format: 1. short summary of editor 1: description\n2. short summary of editor 2: description\n...
     """
 
     topic = dspy.InputField(prefix="Topic of interest:", format=str)
     examples = dspy.InputField(
-        prefix="Wiki page outlines of related topics for inspiration:\n", format=str
+        prefix="Educational primer/mini-textbook outlines of related topics for inspiration:\n", format=str
     )
     personas = dspy.OutputField(format=str)
 
@@ -150,5 +150,6 @@ class StormPersonaGenerator:
         """
         personas = self.create_writer_with_persona(topic=topic)
         default_persona = "Basic fact writer: Basic fact writer focusing on broadly covering the basic facts about the topic."
-        considered_personas = [default_persona] + personas.personas[:max_num_persona]
+        educator_persona = "Educational writer: Educator focusing on explaining the topic in a simple and engaging manner and enriching the content with learning tools like knowledge checks and examples. Utliizes educational techniques such as scaffolding and relevant examples."
+        considered_personas = [default_persona, educator_persona] + personas.personas[:max_num_persona]
         return considered_personas
