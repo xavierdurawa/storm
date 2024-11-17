@@ -72,6 +72,12 @@ class PolishPage(dspy.Signature):
     draft_page = dspy.InputField(prefix="The draft article:\n", format=str)
     page = dspy.OutputField(prefix="Your revised article:\n", format=str)
 
+class PolishPageEducational(dspy.Signature):
+    """You are a educational textbook editor that excels at editing, refining, and expounding upon content to make it most suitable for learning. You help ensure continuity for the reader and that new concepts aren't introduced before the reader is ready. You add any educational components that will help assist the reader with learning including claifications, examples, knowledge check questions, etc.
+    You will keep the inline citations and maintain the article structure (indicated by "#", "##", etc.). Do your job for the following article."""
+
+    draft_page = dspy.InputField(prefix="The draft article:\n", format=str)
+    page = dspy.OutputField(prefix="Your revised article:\n", format=str)
 
 class PolishPageModule(dspy.Module):
     def __init__(
@@ -84,6 +90,7 @@ class PolishPageModule(dspy.Module):
         self.polish_engine = polish_engine
         self.write_lead = dspy.Predict(WriteLeadSection)
         self.polish_page = dspy.Predict(PolishPage)
+        self.polish_page_educational = dspy.Predict(PolishPageEducational)
 
     def forward(self, topic: str, draft_page: str, polish_whole_page: bool = True):
         # NOTE: Change show_guidelines to false to make the generation more robust to different LM families.
@@ -97,6 +104,7 @@ class PolishPageModule(dspy.Module):
             # NOTE: Change show_guidelines to false to make the generation more robust to different LM families.
             with dspy.settings.context(lm=self.polish_engine, show_guidelines=False):
                 page = self.polish_page(draft_page=draft_page).page
+                page = self.polish_page_educational(draft_page=page).page
         else:
             page = draft_page
 
