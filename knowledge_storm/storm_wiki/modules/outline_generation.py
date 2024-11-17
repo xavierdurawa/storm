@@ -134,7 +134,7 @@ class WritePageOutline(dspy.Signature):
     """
 
     topic = dspy.InputField(prefix="The topic you want to write: ", format=str)
-    outline = dspy.OutputField(prefix="Write the Wikipedia page outline:\n", format=str)
+    outline = dspy.OutputField(prefix="Write an outline for a 20-50 page educational primer/mini-textbook:\n", format=str)
 
 
 class NaiveOutlineGen(dspy.Module):
@@ -151,7 +151,7 @@ class NaiveOutlineGen(dspy.Module):
 
 
 class WritePageOutlineFromConv(dspy.Signature):
-    """Improve an outline for a Wikipedia page. You already have a draft outline that covers the general information. Now you want to improve it based on the information learned from an information-seeking conversation to make it more informative.
+    """Improve an outline for an educational primer/mini-textbook. You already have a draft outline that covers the general information. Now you want to improve it based on the information learned from an information-seeking conversation to make it more informative and educational and inlcude any prerequisite topics.
     Here is the format of your writing:
     1. Use "#" Title" to indicate section title, "##" Title" to indicate subsection title, "###" Title" to indicate subsubsection title, and so on.
     2. Do not include other information.
@@ -162,6 +162,6 @@ class WritePageOutlineFromConv(dspy.Signature):
     conv = dspy.InputField(prefix="Conversation history:\n", format=str)
     old_outline = dspy.OutputField(prefix="Current outline:\n", format=str)
     outline = dspy.OutputField(
-        prefix='Write the Wikipedia page outline (Use "#" Title" to indicate section title, "##" Title" to indicate subsection title, ...):\n',
+        prefix='Write the outline of the 20-50 page educational primer/mini-textbook (Use "#" Title" to indicate section title, "##" Title" to indicate subsection title, ...):\n',
         format=str,
     )
