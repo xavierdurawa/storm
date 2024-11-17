@@ -161,7 +161,8 @@ class ConvToSection(dspy.Module):
 
 
 class WriteSection(dspy.Signature):
-    """Write a Wikipedia section based on the collected information.
+    """Write a section of the educational primer/mini-textbook based on the collected information. The section is designed to teach the reader so extra time should be taken to breaking down complex concepts and ideas and providing examples when applicable. Make use of well-known educational techniques, such as summarizing and providing examples. 
+    Sections should usually be at least a few paragraphs in length. They should typically start with the main idea being conveyed and then go into further clarification, examples (potentially multiple if necessary), and relationship/similarities/differences with other related concepts. 
 
     Here is the format of your writing:
         1. Use "#" Title" to indicate section title, "##" Title" to indicate subsection title, "###" Title" to indicate subsubsection title, and so on.
