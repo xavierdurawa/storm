@@ -73,7 +73,7 @@ class StormOutlineGenerationModule(OutlineGenerationModule):
 
 
 class WriteOutline(dspy.Module):
-    """Generate the outline for the Wikipedia page."""
+    """Generate the outline for the educational primer/mini-textbook."""
 
     def __init__(self, engine: Union[dspy.dsp.LM, dspy.dsp.HFModel]):
         super().__init__()
@@ -98,7 +98,7 @@ class WriteOutline(dspy.Module):
             trimmed_dlg_history.append(turn)
         conv = "\n".join(
             [
-                f"Wikipedia Writer: {turn.user_utterance}\nExpert: {turn.agent_utterance}"
+                f"Mini-textbook Writer: {turn.user_utterance}\nExpert: {turn.agent_utterance}"
                 for turn in trimmed_dlg_history
             ]
         )
@@ -126,7 +126,7 @@ class WriteOutline(dspy.Module):
 
 
 class WritePageOutline(dspy.Signature):
-    """Write an outline for a Wikipedia page.
+    """Write an outline for an educational primer/mini-textbook.
     Here is the format of your writing:
     1. Use "#" Title" to indicate section title, "##" Title" to indicate subsection title, "###" Title" to indicate subsubsection title, and so on.
     2. Do not include other information.
