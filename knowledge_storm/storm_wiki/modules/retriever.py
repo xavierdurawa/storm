@@ -86,7 +86,7 @@ GENERALLY_UNRELIABLE = {
     "metal-experience",
     "Metro",
     "The_New_American",
-    "New_York_Post",
+    # "New_York_Post",
     "NGO_Monitor",
     "The_Onion",
     "Our_Campaigns",
@@ -147,7 +147,7 @@ GENERALLY_UNRELIABLE = {
     # "Wikipedia",
     "WordPress.com",
     "Worldometer",
-    "YouTube",
+    # "YouTube",
     "ZDNet",
 }
 DEPRECATED = {

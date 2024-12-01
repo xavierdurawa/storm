@@ -5,11 +5,15 @@ from typing import Callable, Union, List
 import backoff
 import dspy
 import requests
+import base64
 from dsp import backoff_hdlr, giveup_hdlr
+from PIL import Image
+from io import BytesIO
 
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_qdrant import Qdrant
 from qdrant_client import QdrantClient
+from openai import OpenAI
 
 from .utils import WebPageHelper
 
@@ -77,11 +81,12 @@ class YouRM(dspy.Retrieve):
 
         return collected_results
 
-
 class BingSearch(dspy.Retrieve):
     def __init__(
         self,
         bing_search_api_key=None,
+        image_model: str='gpt-4o-mini',
+        image_model_key:str=None,
         k=3,
         is_valid_source: Callable = None,
         min_char_count: int = 150,
@@ -108,7 +113,18 @@ class BingSearch(dspy.Retrieve):
             self.bing_api_key = bing_search_api_key
         else:
             self.bing_api_key = os.environ["BING_SEARCH_API_KEY"]
-        self.endpoint = "https://api.bing.microsoft.com/v7.0/search"
+        
+        if not image_model_key and not os.environ.get("OPENAI_API_KEY"):
+            raise RuntimeError(
+                "You must supply a key for the image model (BingSearch) or set environment variable OPENAI_API_KEY"
+            )
+        elif image_model_key:
+            self.image_model_key = image_model_key
+        else:
+            self.image_model_key = os.environ["OPENAI_API_KEY"]
+
+        self.search_endpoint = "https://api.bing.microsoft.com/v7.0/search"
+        self.image_search_endpoint = "https://api.bing.microsoft.com/v7.0/images/search"
         self.params = {"mkt": mkt, "setLang": language, "count": k, **kwargs}
         self.webpage_helper = WebPageHelper(
             min_char_count=min_char_count,
@@ -116,18 +132,67 @@ class BingSearch(dspy.Retrieve):
             max_thread_num=webpage_helper_max_threads,
         )
         self.usage = 0
+        self.image_model = image_model
 
         # If not None, is_valid_source shall be a function that takes a URL and returns a boolean.
         if is_valid_source:
             self.is_valid_source = is_valid_source
         else:
             self.is_valid_source = lambda x: True
+        
+        self.headers = {"Ocp-Apim-Subscription-Key": self.bing_api_key}
 
     def get_usage_and_reset(self):
         usage = self.usage
         self.usage = 0
 
         return {"BingSearch": usage}
+
+    def query_images(self, query: str):
+        # Query images for the same query
+        response = requests.get(
+            self.image_search_endpoint, headers=self.headers, params={**self.params, "q": query}
+        )
+        response.raise_for_status()
+        image_results = response.json()
+        return image_results
+
+    def load_image_from_url(self, image_url):
+        # Fetch the image from the URL
+        response = requests.get(image_url)
+        response.raise_for_status()  # Check for HTTP errors
+
+        # Open the image from the fetched content
+        image = Image.open(BytesIO(response.content))
+
+        # Convert the image to bytes
+        buffered = BytesIO()
+        image.save(buffered, format="JPEG")
+        image_bytes = buffered.getvalue()
+
+        # Encode the bytes to a base64 string
+        image_base64 = base64.b64encode(image_bytes).decode("utf-8")
+        return image_base64
+
+    def describe_image(self, base64_image) -> str:
+        client = OpenAI(api_key=self.image_model_key)
+        response = client.chat.completions.create(
+            model=self.image_model,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "Please describe this image in detail so that an educator could determine if it would be useful based on the description alone."},
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},
+                        },
+                    ],
+                }
+            ],
+            max_tokens=300,
+        )
+        return response.choices[0].message.content
 
     def forward(
         self, query_or_queries: Union[str, List[str]], exclude_urls: List[str] = []
@@ -139,7 +204,7 @@ class BingSearch(dspy.Retrieve):
             exclude_urls (List[str]): A list of urls to exclude from the search results.
 
         Returns:
-            a list of Dicts, each dict has keys of 'description', 'snippets' (list of strings), 'title', 'url'
+            a list of Dicts, each dict has keys of 'description', 'snippets' (list of strings), 'title', 'url', 'image_description'
         """
         queries = (
             [query_or_queries]
@@ -150,23 +215,44 @@ class BingSearch(dspy.Retrieve):
 
         url_to_results = {}
 
-        headers = {"Ocp-Apim-Subscription-Key": self.bing_api_key}
-
         for query in queries:
             try:
                 results = requests.get(
-                    self.endpoint, headers=headers, params={**self.params, "q": query}
+                    self.search_endpoint, headers=self.headers, params={**self.params, "q": query}
                 ).json()
 
                 for d in results["webPages"]["value"]:
                     if self.is_valid_source(d["url"]) and d["url"] not in exclude_urls:
                         url_to_results[d["url"]] = {
                             "url": d["url"],
+                            "type": "webpage",
                             "title": d["name"],
                             "description": d["snippet"],
                         }
             except Exception as e:
                 logging.error(f"Error occurs when searching query {query}: {e}")
+                
+        for query in queries:
+            try:
+                image_results = self.query_images(query)
+                if image_results:
+                    for image in image_results["value"]:
+                        image_url = image["contentUrl"]
+                        # download image locally first
+                        base64_image = self.load_image_from_url(image_url)
+                        if base64_image is None:
+                            continue
+                        image_description = self.describe_image(base64_image)
+                        if image_description:
+                            url_to_results[image_url] = {
+                                "url": image_url,
+                                "type": "image",
+                                "title": image["name"],
+                                "description": image_description,
+                            }
+
+            except Exception as e:
+                logging.error(f"Error occurs when image searching query {query}: {e}")
 
         valid_url_to_snippets = self.webpage_helper.urls_to_snippets(
             list(url_to_results.keys())

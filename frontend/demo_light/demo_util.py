@@ -554,6 +554,7 @@ def set_storm_runner():
     #                                               api_provider='openai',
     #                                               max_tokens=500, temperature=1.0, top_p=0.9))
     gpt_4_mini = OpenAIModel(model='gpt-4o-mini', max_tokens=3000, **openai_kwargs)
+                       
     llm_configs.set_conv_simulator_lm(gpt_4_mini)
     llm_configs.set_question_asker_lm(gpt_4_mini)
     llm_configs.set_outline_gen_lm(gpt_4_mini)
@@ -563,12 +564,12 @@ def set_storm_runner():
         output_dir=current_working_dir,
         max_conv_turn=3,
         max_perspective=3,
-        search_top_k=10,
+        search_top_k=3,
         retrieve_top_k=5
     )
 
-    rm = BingSearch(bing_search_api_key=os.getenv('BING_SEARCH_KEY'), k=engine_args.search_top_k)
-
+    rm = BingSearch(bing_search_api_key=os.getenv('BING_SEARCH_KEY'), image_model='gpt-4o-mini', 
+                    image_model_key=openai_kwargs["api_key"], k=engine_args.search_top_k)
 
     runner = STORMWikiRunner(engine_args, llm_configs, rm)
     st.session_state["runner"] = runner
